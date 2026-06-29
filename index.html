@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestion des commandes BL3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --vert:#1d3b2f;
+  --vert-clair:#2e5a47;
+  --creme:#f7f3ea;
+  --creme-2:#efe8d8;
+  --terre:#c4622d;
+  --terre-clair:#e0935a;
+  --or:#d8a657;
+  --livr:#3e6b4e;
+  --livr-bg:#e4eee2;
+  --encre:#26241f;
+  --gris:#857f72;
+  --ligne:#ddd4c2;
+  --blanc:#fffdf8;
+  --ombre:0 1px 2px rgba(29,59,47,.06),0 8px 24px rgba(29,59,47,.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--creme);
+  color:var(--encre);
+  line-height:1.5;
+  background-image:radial-gradient(circle at 1px 1px, rgba(29,59,47,.035) 1px, transparent 0);
+  background-size:22px 22px;
+  min-height:100vh;
+}
+
+/* ───── HEADER ───── */
+header{
+  background:var(--vert);
+  color:var(--creme);
+  padding:0;
+  position:relative;
+  overflow:hidden;
+}
+header::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(115deg,transparent 60%,rgba(216,166,87,.12));
+  pointer-events:none;
+}
+.head-inner{
+  max-width:1180px;margin:0 auto;
+  padding:26px 32px 22px;
+  display:flex;justify-content:space-between;align-items:flex-end;
+  gap:24px;flex-wrap:wrap;position:relative;z-index:1;
+}
+.brand{display:flex;align-items:center;gap:15px}
+.logo-mark{
+  width:46px;height:46px;border-radius:13px;
+  background:linear-gradient(145deg,var(--terre),var(--or));
+  display:grid;place-items:center;font-size:24px;
+  box-shadow:0 4px 14px rgba(196,98,45,.35);flex-shrink:0;
+}
+.brand h1{
+  font-family:'Fraunces',serif;font-weight:600;
+  font-size:28px;line-height:1.05;letter-spacing:-.01em;
+}
+.brand .etab{
+  font-size:13px;color:var(--terre-clair);font-weight:500;
+  letter-spacing:.04em;text-transform:uppercase;margin-top:3px;
+}
+.etab-edit{
+  background:transparent;border:none;color:var(--terre-clair);
+  font:inherit;font-size:13px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;border-bottom:1px dashed transparent;
+  cursor:text;padding:0;width:auto;min-width:120px;
+}
+.etab-edit:hover{border-bottom-color:var(--terre-clair)}
+.etab-edit:focus{outline:none;border-bottom-color:var(--or);color:var(--or)}
+.head-meta{text-align:right;font-size:13px;color:rgba(247,243,234,.7)}
+.head-meta .date{font-size:15px;color:var(--creme);font-weight:500;text-transform:capitalize}
+
+/* ───── ONGLETS ───── */
+nav{
+  max-width:1180px;margin:0 auto;
+  padding:0 32px;display:flex;gap:4px;position:relative;z-index:2;
+  margin-top:-1px;
+}
+.tab{
+  background:transparent;border:none;cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-size:14.5px;font-weight:600;
+  color:rgba(247,243,234,.6);
+  padding:11px 22px 13px;border-radius:11px 11px 0 0;
+  transition:.18s;display:flex;align-items:center;gap:8px;
+}
+.tab:hover{color:var(--creme);background:rgba(247,243,234,.08)}
+.tab.actif{background:var(--creme);color:var(--vert)}
+.tab .tnum{
+  background:rgba(0,0,0,.12);border-radius:20px;font-size:11px;
+  padding:1px 8px;font-weight:700;
+}
+.tab.actif .tnum{background:var(--terre);color:#fff}
+
+/* ───── MAIN ───── */
+main{max-width:1180px;margin:0 auto;padding:30px 32px 80px}
+.vue{display:none;animation:fade .35s ease}
+.vue.actif{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.panel{
+  background:var(--blanc);border-radius:18px;
+  box-shadow:var(--ombre);border:1px solid var(--ligne);
+  overflow:hidden;margin-bottom:22px;
+}
+.panel-head{
+  padding:20px 26px;border-bottom:1px solid var(--ligne);
+  display:flex;justify-content:space-between;align-items:center;
+  gap:16px;flex-wrap:wrap;
+  background:linear-gradient(var(--blanc),var(--creme));
+}
+.panel-head h2{
+  font-family:'Fraunces',serif;font-size:21px;font-weight:600;
+  color:var(--vert);display:flex;align-items:center;gap:10px;
+}
+.panel-head .ref{
+  font-size:13px;color:var(--gris);font-weight:500;
+  background:var(--creme-2);padding:5px 13px;border-radius:8px;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ───── TABLEAU ───── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:760px}
+thead th{
+  background:var(--vert);color:var(--creme);
+  font-size:12px;font-weight:600;letter-spacing:.03em;
+  text-transform:uppercase;text-align:left;
+  padding:13px 14px;white-space:nowrap;
+}
+thead th.col-livr{background:var(--livr)}
+thead th.num{text-align:right}
+tbody td{
+  padding:7px 10px;border-bottom:1px solid var(--ligne);
+  font-size:14.5px;vertical-align:middle;
+}
+tbody tr:nth-child(even){background:rgba(239,232,216,.4)}
+tbody tr:hover{background:rgba(216,166,87,.08)}
+tbody tr.cat-sep{background:var(--vert)!important}
+tbody tr.cat-sep td{
+  color:var(--or);font-family:'Fraunces',serif;font-weight:600;
+  font-size:13px;letter-spacing:.06em;text-transform:uppercase;
+  padding:8px 14px;border:none;
+}
+.cell-in{
+  width:100%;border:1px solid transparent;background:transparent;
+  font:inherit;font-size:14.5px;color:var(--encre);
+  padding:7px 9px;border-radius:8px;transition:.15s;
+}
+.cell-in:hover{background:var(--blanc);border-color:var(--ligne)}
+.cell-in:focus{outline:none;background:var(--blanc);border-color:var(--terre);box-shadow:0 0 0 3px rgba(196,98,45,.12)}
+.cell-in.num{text-align:right;font-variant-numeric:tabular-nums}
+.ro-cell{
+  padding:8px 10px;font-size:14.5px;color:var(--encre);
+}
+.ro-cell.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--gris);padding-right:14px}
+/* la quantité est le seul champ saisissable : on le matérialise */
+td:has(> .cell-in[data-f="qte"]){background:rgba(216,166,87,.10)}
+.cell-in[data-f="qte"]{border-color:var(--ligne);background:var(--blanc);font-weight:600;text-align:right}
+.cell-in[data-f="qte"]:focus{border-color:var(--terre);box-shadow:0 0 0 3px rgba(196,98,45,.12)}
+td.col-livr{background:var(--livr-bg)}
+tr:hover td.col-livr{background:#d9e8d6}
+.cell-in.livr{color:var(--livr);font-weight:600}
+.cell-in.livr::placeholder{color:#9bb39e;font-weight:400}
+.montant{
+  text-align:right;font-variant-numeric:tabular-nums;
+  font-weight:600;color:var(--vert);font-size:14.5px;
+  padding-right:14px;white-space:nowrap;
+}
+.del-btn{
+  background:transparent;border:none;cursor:pointer;color:var(--gris);
+  width:30px;height:30px;border-radius:8px;font-size:17px;
+  display:grid;place-items:center;transition:.15s;opacity:.4;
+}
+tr:hover .del-btn{opacity:1}
+.del-btn:hover{background:#f5dcd0;color:var(--terre)}
+
+tfoot td{
+  padding:15px 14px;font-weight:700;font-size:15px;
+  border-top:2px solid var(--vert);background:var(--creme-2);
+}
+tfoot .lbl{font-family:'Fraunces',serif;color:var(--vert);font-size:16px}
+tfoot .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--vert)}
+tfoot .num.livr{color:var(--livr)}
+tfoot .montant-tot{
+  text-align:right;color:var(--terre);font-size:17px;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ───── BOUTONS ───── */
+.actions{padding:20px 26px;display:flex;gap:11px;flex-wrap:wrap;align-items:center}
+.btn{
+  font-family:'DM Sans',sans-serif;font-size:14.5px;font-weight:600;
+  padding:11px 19px;border-radius:11px;cursor:pointer;border:none;
+  display:inline-flex;align-items:center;gap:8px;transition:.18s;
+  white-space:nowrap;
+}
+.btn:active{transform:translateY(1px)}
+.btn-primaire{background:var(--vert);color:var(--creme);box-shadow:0 3px 10px rgba(29,59,47,.25)}
+.btn-primaire:hover{background:var(--vert-clair);box-shadow:0 5px 16px rgba(29,59,47,.32)}
+.btn-terre{background:var(--terre);color:#fff;box-shadow:0 3px 10px rgba(196,98,45,.28)}
+.btn-terre:hover{background:#d56f38}
+.btn-ghost{background:var(--creme-2);color:var(--vert)}
+.btn-ghost:hover{background:#e6dcc6}
+.btn-add{
+  background:transparent;color:var(--terre);border:1.5px dashed var(--terre-clair);
+  margin:14px 26px;padding:12px;width:calc(100% - 52px);justify-content:center;
+}
+.btn-add:hover{background:rgba(196,98,45,.06);border-color:var(--terre)}
+
+/* ───── RÉCAP ───── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:22px}
+.stat{
+  background:var(--blanc);border-radius:16px;padding:20px 22px;
+  border:1px solid var(--ligne);box-shadow:var(--ombre);position:relative;overflow:hidden;
+}
+.stat::before{content:"";position:absolute;top:0;left:0;width:4px;height:100%;background:var(--terre)}
+.stat.v::before{background:var(--vert)}
+.stat.l::before{background:var(--livr)}
+.stat .lab{font-size:12.5px;color:var(--gris);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.stat .val{font-family:'Fraunces',serif;font-size:30px;font-weight:600;color:var(--vert);margin-top:6px;font-variant-numeric:tabular-nums}
+.stat.terre .val{color:var(--terre)}
+.mois-pick{
+  display:flex;align-items:center;gap:10px;
+}
+.mois-pick select{
+  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--vert);
+  padding:8px 14px;border-radius:10px;border:1px solid var(--ligne);
+  background:var(--blanc);cursor:pointer;
+}
+.vide{
+  text-align:center;padding:60px 20px;color:var(--gris);
+}
+.vide .ic{font-size:42px;display:block;margin-bottom:12px;opacity:.5}
+.vide p{font-size:15px}
+
+.hist-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 18px;border-bottom:1px solid var(--ligne);gap:14px;flex-wrap:wrap;
+}
+.hist-row:last-child{border-bottom:none}
+.hist-row:hover{background:var(--creme)}
+.hist-info{display:flex;flex-direction:column;gap:2px}
+.hist-ref{font-weight:600;color:var(--vert);font-size:14.5px;font-variant-numeric:tabular-nums}
+.hist-date{font-size:12.5px;color:var(--gris)}
+.hist-right{display:flex;align-items:center;gap:14px}
+.hist-mont{font-weight:700;color:var(--terre);font-variant-numeric:tabular-nums}
+.badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+.badge.envoye{background:var(--livr-bg);color:var(--livr)}
+.badge.recu{background:var(--livr-bg);color:var(--livr)}
+.badge.attente{background:#f6e3d4;color:var(--terre)}
+
+/* ───── TOAST ───── */
+.toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--vert);color:var(--creme);padding:14px 24px;border-radius:13px;
+  font-size:14.5px;font-weight:500;box-shadow:0 10px 30px rgba(29,59,47,.3);
+  display:flex;align-items:center;gap:10px;z-index:100;opacity:0;transition:.4s cubic-bezier(.2,.8,.2,1);
+  max-width:90vw;
+}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast .ic{font-size:18px}
+
+.hint{font-size:13px;color:var(--gris);padding:0 26px 20px;line-height:1.6}
+.hint b{color:var(--vert-clair)}
+
+@media (max-width:640px){
+  .head-inner{padding:20px}
+  nav{padding:0 14px;overflow-x:auto}
+  main{padding:20px 14px 60px}
+  .panel-head{padding:16px 18px}
+  .actions{padding:16px 18px}
+  .btn-add{margin:12px 18px;width:calc(100% - 36px)}
+  .brand h1{font-size:23px}
+}
+@media print{
+  header,nav,.actions,.btn-add,.tab,.del-btn,.del-col,.hint{display:none!important}
+  body{background:#fff}
+  .panel{box-shadow:none;border:1px solid #ccc}
+  .vue:not(.actif){display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-inner">
+    <div class="brand">
+      <div class="logo-mark">📦</div>
+      <div>
+        <h1>Gestion des commandes BL3</h1>
+        <input class="etab-edit" id="etabNom" value="BL3 city" maxlength="40" title="Cliquez pour modifier le nom">
+      </div>
+    </div>
+    <div class="head-meta">
+      <div class="date" id="dateJour">—</div>
+      <div>Système de commande &amp; livraison</div>
+    </div>
+  </div>
+  <nav>
+    <button class="tab actif" data-vue="commande">🛒 Passer commande</button>
+    <button class="tab" data-vue="reception">📥 Réceptionner <span class="tnum" id="recCount">0</span></button>
+    <button class="tab" data-vue="recap">📊 Récapitulatif mensuel</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ════ VUE COMMANDE ════ -->
+  <section class="vue actif" id="vue-commande">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>📝 Bon de commande</h2>
+        <span class="ref" id="refCmd">CMD-…</span>
+      </div>
+      <div class="tbl-wrap">
+        <table id="tblCmd">
+          <thead>
+            <tr>
+              <th style="width:16%">Catégorie</th>
+              <th style="width:30%">Produit</th>
+              <th style="width:18%">Conditionnement</th>
+              <th class="num" style="width:13%">Qté commandée</th>
+              <th class="num" style="width:14%">Prix vente unit.</th>
+              <th class="num" style="width:14%">Montant</th>
+            </tr>
+          </thead>
+          <tbody id="corpsCmd"></tbody>
+          <tfoot>
+            <tr>
+              <td class="lbl" colspan="3">TOTAL</td>
+              <td class="num" id="totQteCmd">0</td>
+              <td></td>
+              <td class="montant-tot" id="totMontant">0,00 €</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="hint">
+        💡 Renseignez uniquement la colonne <b>Qté commandée</b> (champ surligné) ; produits et tarifs proviennent du catalogue et ne sont pas modifiables ici. À l'envoi, la commande est <b>transmise par e-mail</b>, archivée en <b>PDF sur le Drive</b> et enregistrée dans l'espace partagé. Les <b>quantités reçues</b> se saisissent ensuite dans l'onglet <b>« Réceptionner »</b>.
+      </div>
+      <div class="actions">
+        <button class="btn btn-primaire" id="btnEnregistrer">📤 Envoyer la commande</button>
+        <button class="btn btn-ghost" id="btnReset">↺ Nouvelle commande</button>
+        <span id="envoiEtat" style="font-size:13px;color:var(--gris)"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════ VUE RÉCAP ════ -->
+  <section class="vue" id="vue-recap">
+    <div class="stats" id="recapStats"></div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>📊 Produits commandés sur le mois</h2>
+        <div class="mois-pick">
+          <span style="font-size:13px;color:var(--gris)">Mois :</span>
+          <select id="moisSelect"></select>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="recapBody"></div>
+    </div>
+  </section>
+
+  <!-- ════ VUE RÉCEPTION ════ -->
+  <section class="vue" id="vue-reception">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>📥 Réceptionner une commande</h2>
+        <div class="mois-pick">
+          <span style="font-size:13px;color:var(--gris)">Mois :</span>
+          <select id="recMoisSelect"></select>
+        </div>
+      </div>
+      <div id="recListe"></div>
+    </div>
+
+    <!-- panneau de saisie réception (caché par défaut) -->
+    <div class="panel" id="recSaisie" style="display:none">
+      <div class="panel-head">
+        <h2>✅ Saisie des quantités reçues</h2>
+        <span class="ref" id="recSaisieRef">CMD-…</span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:18%">Catégorie</th>
+              <th style="width:32%">Produit</th>
+              <th style="width:20%">Conditionnement</th>
+              <th class="num" style="width:15%">Qté commandée</th>
+              <th class="col-livr num" style="width:15%">Qté reçue</th>
+            </tr>
+          </thead>
+          <tbody id="recCorps"></tbody>
+          <tfoot>
+            <tr>
+              <td class="lbl" colspan="3">TOTAL</td>
+              <td class="num" id="recTotCmd">0</td>
+              <td class="num livr" id="recTotLivr">0</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="hint" id="recEcart"></div>
+      <div class="actions">
+        <button class="btn btn-primaire" id="recValider">✅ Valider la réception</button>
+        <button class="btn btn-ghost" id="recAnnuler">← Retour à la liste</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"><span class="ic">✓</span><span id="toastMsg"></span></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONFIGURATION
+   ▸ Collez ci-dessous l'URL de votre application Web Apps Script
+     (obtenue lors du déploiement — voir le guide d'installation).
+   ▸ Laissez "" pour un fonctionnement LOCAL de test
+     (données stockées dans le navigateur, pas d'e-mail ni de Drive).
+   ═══════════════════════════════════════════════════════════ */
+const CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbyWgx4ALODABvsF4yxl7E2-CxDXIP5QkkYR5mqOqiuTUmBffYxUlszJ8p1sBHyyjhKrPw/exec"   // ← application Web Apps Script
+};
+
+/* ═══════════ STOCKAGE LOCAL (cache / mode test) ═══════════ */
+const Store = (() => {
+  let mem = {};
+  let ok = false;
+  try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); ok = true; }catch(e){ ok = false; }
+  return {
+    get(k){ try{ return ok ? JSON.parse(localStorage.getItem(k)) : (mem[k] ?? null); }catch(e){ return null; } },
+    set(k,v){ try{ ok ? localStorage.setItem(k, JSON.stringify(v)) : (mem[k]=v); }catch(e){ mem[k]=v; } }
+  };
+})();
+
+/* ═══════════ ACCÈS DONNÉES (backend partagé + repli local) ═══════════ */
+let _cmds = [];                         // cache des commandes
+const enLigne = () => !!CONFIG.API_URL;
+
+const Data = {
+  async list(){
+    if(enLigne()){
+      try{
+        const r = await fetch(CONFIG.API_URL + '?action=list&t=' + Date.now());
+        const d = await r.json();
+        _cmds = d.commandes || [];
+        Store.set('commandes', _cmds);          // copie locale de secours
+        return _cmds;
+      }catch(e){
+        toast('Serveur injoignable — affichage de la copie locale','⚠️');
+        _cmds = Store.get('commandes') || [];
+        return _cmds;
+      }
+    }
+    _cmds = Store.get('commandes') || [];
+    return _cmds;
+  },
+  async save(order){
+    if(enLigne()){
+      const r = await fetch(CONFIG.API_URL, {
+        method:'POST',
+        body: JSON.stringify({action:'save', commande:order})  // text/plain : pas de préflight CORS
+      });
+      return await r.json();
+    }
+    // mode local
+    const cmds = Store.get('commandes') || [];
+    const i = cmds.findIndex(c=>c.ref===order.ref);
+    if(i>=0) cmds[i]=order; else cmds.push(order);
+    Store.set('commandes', cmds);
+    return {ok:true, local:true};
+  },
+  async receive(ref, lignes){
+    if(enLigne()){
+      const r = await fetch(CONFIG.API_URL, {
+        method:'POST',
+        body: JSON.stringify({action:'receive', ref, lignes})
+      });
+      return await r.json();
+    }
+    const cmds = Store.get('commandes') || [];
+    const i = cmds.findIndex(c=>c.ref===ref);
+    if(i>=0){ cmds[i].lignes=lignes; cmds[i].statut='recu'; cmds[i].dateRecep=new Date().toISOString(); }
+    Store.set('commandes', cmds);
+    return {ok:true, local:true};
+  },
+  async remove(ref){
+    if(enLigne()){
+      const r = await fetch(CONFIG.API_URL, {
+        method:'POST',
+        body: JSON.stringify({action:'delete', ref})
+      });
+      return await r.json();
+    }
+    let cmds = Store.get('commandes') || [];
+    cmds = cmds.filter(c=>c.ref!==ref);
+    Store.set('commandes', cmds);
+    return {ok:true, local:true};
+  },
+  async catalog(){
+    if(enLigne()){
+      try{
+        const r = await fetch(CONFIG.API_URL + '?action=catalog&t=' + Date.now());
+        const d = await r.json();
+        if(d.ok && d.articles && d.articles.length) return d.articles;
+      }catch(e){ /* repli */ }
+    }
+    return CATALOGUE_DEFAUT.slice();
+  }
+};
+
+/* ═══════════ ÉTAT ═══════════ */
+const CATALOGUE_DEFAUT = [
+  // À emporter
+  {cat:'À emporter', prod:'Croque Boulder', cond:'Pièce', prix:1.79},
+  {cat:'À emporter', prod:'Toasty chicken', cond:'Pièce', prix:2.34},
+  {cat:'À emporter', prod:'Toasty Salmon', cond:'Pièce', prix:2.81},
+  {cat:'À emporter', prod:'Toasty Végé', cond:'Pièce', prix:2.14},
+
+  // Tapas
+  {cat:'Tapas', prod:'Briare', cond:'1/2 pain', prix:4.95},
+  {cat:'Tapas', prod:'Cacahuètes', cond:'Kg', prix:5.61},
+  {cat:'Tapas', prod:'Chips aveyron', cond:'Pièce', prix:1.63},
+  {cat:'Tapas', prod:'Saucisson Nature', cond:'Pièce', prix:3.4},
+  {cat:'Tapas', prod:'Saucisson Poivre', cond:'Pièce', prix:3.4},
+
+  // Sucré
+  {cat:'Sucré', prod:'Cookie', cond:'Pièce', prix:0.59},
+  {cat:'Sucré', prod:'Cookie praline', cond:'Pièce', prix:0.67},
+  {cat:'Sucré', prod:'Fromage blanc portion', cond:'Pièce', prix:0.63},
+  {cat:'Sucré', prod:'Fondant chocolat', cond:'Pièce', prix:0.96},
+  {cat:'Sucré', prod:'Gateau anniversaire BL3 ( + Framboise + chantilly)', cond:'Pièce', prix:21.5},
+  {cat:'Sucré', prod:'Monka Ball Cookie dought', cond:'Pièce', prix:1.93},
+  {cat:'Sucré', prod:'Monka Ball Coco', cond:'Pièce', prix:1.93},
+
+  // Épicerie bar
+  {cat:'Épicerie bar', prod:'Café', cond:'1 kg', prix:24.5},
+  {cat:'Épicerie bar', prod:'Chai', cond:'1 kg', prix:20.67},
+  {cat:'Épicerie bar', prod:'Citron', cond:'1 kg', prix:4.37},
+  {cat:'Épicerie bar', prod:'Décaféiné', cond:'250 g', prix:7.6},
+  {cat:'Épicerie bar', prod:'Matcha', cond:'1 kg', prix:25.48},
+  {cat:'Épicerie bar', prod:'Miel', cond:'100 g', prix:6.74},
+  {cat:'Épicerie bar', prod:'Orange', cond:'1 kg', prix:2.6},
+  {cat:'Épicerie bar', prod:'Sucre', cond:'100 g', prix:0.12},
+  {cat:'Épicerie bar', prod:'The Pukka', cond:'Unité', prix:0.24},
+  {cat:'Épicerie bar', prod:'Van Houten', cond:'1 kg', prix:8.48},
+
+  // Boisson
+  {cat:'Boisson', prod:'Cidre', cond:'Unité', prix:1.98},
+  {cat:'Boisson', prod:'Citronnade', cond:'Litre', prix:2.55},
+  {cat:'Boisson', prod:'Cola de la Jonte', cond:'Unité', prix:1.24},
+  {cat:'Boisson', prod:'Granini Ace', cond:'Unité', prix:0.93},
+  {cat:'Boisson', prod:'Granini Pomelos', cond:'Unité', prix:0.82},
+  {cat:'Boisson', prod:'Gingeur beer', cond:'Unité', prix:2.07},
+  {cat:'Boisson', prod:'Goxoa', cond:'Unité', prix:2.19},
+  {cat:'Boisson', prod:'Kombucha hibiscus', cond:'Unité', prix:2.13},
+  {cat:'Boisson', prod:'Lait avoine', cond:'Litre', prix:1.32},
+  {cat:'Boisson', prod:'Lait entier', cond:'Litre', prix:1.3},
+  {cat:'Boisson', prod:'Limonade abricot jonte', cond:'Unité', prix:1.3},
+  {cat:'Boisson', prod:'Limonade myrtille Jonte', cond:'Unité', prix:1.3},
+  {cat:'Boisson', prod:'Limonad miles', cond:'Unité', prix:0.69},
+  {cat:'Boisson', prod:'Ocean 52 Water', cond:'Unité', prix:0.84},
+  {cat:'Boisson', prod:'San pellegrino 50l verre', cond:'Unité', prix:0.82},
+  {cat:'Boisson', prod:'San Pellegrino limonata', cond:'Unité', prix:0.76},
+  {cat:'Boisson', prod:'San Pellegrino Melograno', cond:'Unité', prix:0.77},
+  {cat:'Boisson', prod:'San Pellegrino Canette', cond:'Unité', prix:0.72},
+  {cat:'Boisson', prod:'Sirop citron', cond:'Litre', prix:4.58},
+  {cat:'Boisson', prod:'Sirop grenadine', cond:'Litre', prix:4.43},
+  {cat:'Boisson', prod:'Sirop menthe', cond:'Litre', prix:4.29},
+  {cat:'Boisson', prod:'sirop noisette', cond:'Litre', prix:7.37},
+  {cat:'Boisson', prod:'Sirop orgeat', cond:'Litre', prix:3.8},
+  {cat:'Boisson', prod:'Sirop peche', cond:'Litre', prix:5.76},
+  {cat:'Boisson', prod:'Sirop vanille', cond:'Litre', prix:11.5},
+  {cat:'Boisson', prod:'Thé glacé', cond:'Litre', prix:2.09},
+  {cat:'Boisson', prod:'Vendale Blonde La Com', cond:'Fût 20 L', prix:54.0},
+  {cat:'Boisson', prod:'Vendale Blanche L\'espla', cond:'Fût 20 L', prix:56.0},
+  {cat:'Boisson', prod:'Vendale Ambré Corum', cond:'Fût 20 L', prix:56.0},
+  {cat:'Boisson', prod:'Vendale IPA La pref', cond:'Fût 20 L', prix:62.0},
+  {cat:'Boisson', prod:'Vendale Triple Roch', cond:'Fût 20 L', prix:62.0},
+
+  // Hygiène
+  {cat:'Hygiène', prod:'Produit vaiselle', cond:'Bidon', prix:16.0},
+  {cat:'Hygiène', prod:'Gant', cond:'Boîte', prix:5.03},
+  {cat:'Hygiène', prod:'Essui main Blanc', cond:'Pièce', prix:3.79},
+  {cat:'Hygiène', prod:'Essuie Main Rose', cond:'Pièce', prix:8.5},
+  {cat:'Hygiène', prod:'Sac Poubelle 50l', cond:'Rouleau', prix:0.09},
+  {cat:'Hygiène', prod:'Sac Poubelle 130L', cond:'Rouleau', prix:0.21},
+  {cat:'Hygiène', prod:'Produit lave verre gris F420', cond:'Bidon 10 L', prix:79.0},
+  {cat:'Hygiène', prod:'Produit rincage lave verre BN100', cond:'Bidon 10 L', prix:50.0},
+  {cat:'Hygiène', prod:'Vinaigre blanc', cond:'Bidon 10 L', prix:0.63},
+
+  // Autre
+  {cat:'Autre', prod:'Pailles', cond:'Paquet', prix:0.1},
+  {cat:'Autre', prod:'Serviettes bar', cond:'Paquet de 100', prix:0.02},
+];
+
+let ligneEnCours = [];   // lignes du bon de commande en cours
+let catalogue = CATALOGUE_DEFAUT.slice();  // articles de référence (chargés du backend si dispo)
+let refActuelle  = '';
+const moisFr = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+function nouvelleRef(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  return `CMD-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+}
+function eur(n){ return (n||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }
+
+/* ═══════════ INIT ═══════════ */
+function init(){
+  // nom établissement
+  const nom = Store.get('etab'); if(nom) document.getElementById('etabNom').value = nom;
+  document.getElementById('etabNom').addEventListener('input', e=>Store.set('etab', e.target.value));
+
+  // date du jour
+  const d = new Date();
+  document.getElementById('dateJour').textContent =
+    d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  refActuelle = nouvelleRef();
+  document.getElementById('refCmd').textContent = refActuelle;
+
+  // lignes par défaut depuis le catalogue (repli immédiat, puis maj backend)
+  ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''}));
+  renderCmd();
+  Data.catalog().then(arts=>{
+    catalogue = arts;
+    // ne recharge le formulaire que si l'utilisateur n'a encore rien saisi
+    const vierge = ligneEnCours.every(l=>!l.qte);
+    if(vierge){ ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''})); renderCmd(); }
+  });
+
+  // onglets
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=>switchVue(t.dataset.vue, t));
+  });
+
+  // boutons
+  document.getElementById('btnEnregistrer').addEventListener('click', enregistrer);
+  document.getElementById('btnReset').addEventListener('click', resetCmd);
+  document.getElementById('recValider').addEventListener('click', validerReception);
+  document.getElementById('recAnnuler').addEventListener('click', ()=>{
+    document.getElementById('recSaisie').style.display='none';
+    recRefCourante=null;
+  });
+
+  // chargement initial (compteur "à réceptionner")
+  Data.list().then(majRecCount);
+}
+
+/* ═══════════ RENDU COMMANDE ═══════════ */
+function renderCmd(){
+  const corps = document.getElementById('corpsCmd');
+  corps.innerHTML = '';
+  let catPrec = null;
+  ligneEnCours.forEach((l,i)=>{
+    // séparateur de catégorie
+    if((l.cat||'') !== catPrec){
+      catPrec = l.cat||'';
+      const sep = document.createElement('tr');
+      sep.className = 'cat-sep';
+      sep.innerHTML = `<td colspan="6">${esc(catPrec || '—')}</td>`;
+      corps.appendChild(sep);
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="ro-cell">${esc(l.cat)}</td>
+      <td class="ro-cell">${esc(l.prod)}</td>
+      <td class="ro-cell">${esc(l.cond)}</td>
+      <td><input class="cell-in num" data-f="qte" data-i="${i}" type="number" min="0" step="1" value="${l.qte}" placeholder="0"></td>
+      <td class="ro-cell num">${eur(l.prix)}</td>
+      <td class="montant">${eur((+l.qte||0)*(+l.prix||0))}</td>`;
+    corps.appendChild(tr);
+  });
+  corps.querySelectorAll('.cell-in').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i=+e.target.dataset.i;
+      ligneEnCours[i].qte = e.target.value;
+      e.target.closest('tr').querySelector('.montant').textContent =
+        eur((+ligneEnCours[i].qte||0)*(+ligneEnCours[i].prix||0));
+      majTotaux();
+    });
+  });
+  majTotaux();
+}
+function majTotaux(){
+  let q=0,m=0;
+  ligneEnCours.forEach(l=>{q+=(+l.qte||0); m+=(+l.qte||0)*(+l.prix||0);});
+  document.getElementById('totQteCmd').textContent  = q;
+  document.getElementById('totMontant').textContent = eur(m);
+}
+function resetCmd(){
+  ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''}));
+  refActuelle = nouvelleRef();
+  document.getElementById('refCmd').textContent = refActuelle;
+  renderCmd();
+  toast('Nouvelle commande prête');
+}
+
+/* ═══════════ ENVOYER LA COMMANDE ═══════════ */
+function lignesValides(){ return ligneEnCours.filter(l=>l.prod.trim() && (+l.qte>0)); }
+
+async function enregistrer(){
+  const lignes = lignesValides().map(l=>({...l, livr:''}));
+  if(!lignes.length){ toast('Ajoutez au moins un produit avec une quantité','⚠️'); return; }
+
+  const btn  = document.getElementById('btnEnregistrer');
+  const etat = document.getElementById('envoiEtat');
+  btn.disabled = true; const libInit = btn.textContent;
+  btn.textContent = '⏳ Envoi en cours…';
+  etat.textContent = '';
+
+  const total = lignes.reduce((s,l)=>s+(+l.qte||0)*(+l.prix||0),0);
+  const obj = {
+    ref: refActuelle,
+    date: new Date().toISOString(),
+    etablissement: document.getElementById('etabNom').value || 'BL3 city',
+    lignes, total,
+    statut: 'attente'
+  };
+
+  try{
+    const res = await Data.save(obj);
+    if(res && res.ok){
+      if(res.local){
+        toast('Commande enregistrée (mode local — e-mail/Drive inactifs)','💾');
+        etat.textContent = '';
+      }else{
+        toast('Commande envoyée par e-mail et archivée ✓','📤');
+        etat.innerHTML = '✅ E-mail envoyé · PDF archivé sur le Drive';
+      }
+      await majRecCount();
+      // prépare une nouvelle commande
+      setTimeout(resetCmd, 900);
+    }else{
+      toast('Échec de l\'envoi : ' + (res && res.erreur ? res.erreur : 'erreur serveur'),'⚠️');
+    }
+  }catch(e){
+    toast('Connexion au serveur impossible — commande non envoyée','⚠️');
+  }finally{
+    btn.disabled = false; btn.textContent = libInit;
+  }
+}
+
+/* ═══════════ RÉCAP MENSUEL ═══════════ */
+async function buildRecap(){
+  await Data.list();
+  const sel = document.getElementById('moisSelect');
+  const moisSet = [...new Set(_cmds.map(c=>c.date.slice(0,7)))].sort().reverse();
+  const courant = new Date().toISOString().slice(0,7);
+  if(!moisSet.includes(courant)) moisSet.unshift(courant);
+  const prev = sel.value;
+  sel.innerHTML = moisSet.map(m=>{
+    const [y,mo]=m.split('-');
+    return `<option value="${m}">${moisFr[+mo-1]} ${y}</option>`;
+  }).join('');
+  if(prev && moisSet.includes(prev)) sel.value = prev;
+  sel.onchange = renderRecap;
+  renderRecap();
+}
+function renderRecap(){
+  const cmds = _cmds;
+  const mois = document.getElementById('moisSelect').value;
+  const duMois = cmds.filter(c=>c.date.slice(0,7)===mois);
+
+  // agréger par produit (clé prod+cond)
+  const agg = {};
+  duMois.forEach(c=>c.lignes.forEach(l=>{
+    const k = l.prod+'|'+l.cond;
+    if(!agg[k]) agg[k]={cat:l.cat,prod:l.prod,cond:l.cond,prix:+l.prix||0,qte:0,livr:0};
+    agg[k].qte  += (+l.qte||0);
+    agg[k].livr += (+l.livr||0);
+  }));
+  const rows = Object.values(agg).sort((a,b)=> (a.cat||'').localeCompare(b.cat||'') || a.prod.localeCompare(b.prod));
+
+  const totQte = rows.reduce((s,r)=>s+r.qte,0);
+  const totLivr= rows.reduce((s,r)=>s+r.livr,0);
+  const totCA  = rows.reduce((s,r)=>s+r.qte*r.prix,0);
+
+  // stats
+  document.getElementById('recapStats').innerHTML = `
+    <div class="stat v"><div class="lab">Commandes du mois</div><div class="val">${duMois.length}</div></div>
+    <div class="stat"><div class="lab">Produits commandés</div><div class="val">${totQte}</div></div>
+    <div class="stat l"><div class="lab">Produits livrés</div><div class="val" style="color:var(--livr)">${totLivr}</div></div>
+    <div class="stat terre"><div class="lab">Chiffre d'affaires</div><div class="val">${eur(totCA)}</div></div>`;
+
+  const body = document.getElementById('recapBody');
+  if(!rows.length){
+    body.innerHTML = `<div class="vide"><span class="ic">📭</span><p>Aucune commande enregistrée pour ce mois.</p></div>`;
+    return;
+  }
+  body.innerHTML = `<table><thead><tr>
+      <th>Catégorie</th><th>Produit</th><th>Conditionnement</th>
+      <th class="num">Qté commandée</th><th class="col-livr num">Qté livrée</th>
+      <th class="num">Prix vente unit.</th><th class="num">CA produit</th>
+    </tr></thead><tbody>${
+      rows.map(r=>`<tr>
+        <td>${esc(r.cat)}</td><td>${esc(r.prod)}</td><td>${esc(r.cond)}</td>
+        <td class="montant" style="color:var(--encre)">${r.qte}</td>
+        <td class="col-livr montant" style="color:var(--livr)">${r.livr}</td>
+        <td class="montant" style="color:var(--encre)">${eur(r.prix)}</td>
+        <td class="montant">${eur(r.qte*r.prix)}</td>
+      </tr>`).join('')
+    }</tbody><tfoot><tr>
+      <td class="lbl" colspan="3">TOTAL DU MOIS</td>
+      <td class="num">${totQte}</td><td class="num livr">${totLivr}</td>
+      <td></td><td class="montant-tot">${eur(totCA)}</td>
+    </tr></tfoot></table>`;
+}
+
+/* ═══════════ RÉCEPTION ═══════════ */
+let recRefCourante = null;
+
+async function buildReception(){
+  await Data.list();
+  const sel = document.getElementById('recMoisSelect');
+  const moisSet = [...new Set(_cmds.map(c=>c.date.slice(0,7)))].sort().reverse();
+  const prev = sel.value;
+  sel.innerHTML = `<option value="tous">Tous les mois</option>` + moisSet.map(m=>{
+    const [y,mo]=m.split('-');
+    return `<option value="${m}">${moisFr[+mo-1]} ${y}</option>`;
+  }).join('');
+  if(prev && (prev==='tous'||moisSet.includes(prev))) sel.value = prev;
+  sel.onchange = renderRecListe;
+  document.getElementById('recSaisie').style.display = 'none';
+  renderRecListe();
+}
+
+function renderRecListe(){
+  const mois = document.getElementById('recMoisSelect').value;
+  // filtre mois + tri du plus récent au plus ancien
+  const liste = _cmds
+    .filter(c => mois==='tous' || c.date.slice(0,7)===mois)
+    .sort((a,b)=> new Date(b.date) - new Date(a.date));
+
+  const body = document.getElementById('recListe');
+  if(!liste.length){
+    body.innerHTML = `<div class="vide"><span class="ic">📭</span><p>Aucune commande à réceptionner pour cette période.</p></div>`;
+    return;
+  }
+  body.innerHTML = liste.map(c=>{
+    const d = new Date(c.date);
+    const ds = d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'long',year:'numeric'})
+             +' · '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const recu = c.statut==='recu';
+    const badge = recu
+      ? '<span class="badge recu">✓ Réceptionnée</span>'
+      : '<span class="badge attente">⏳ À réceptionner</span>';
+    const libBtn = recu ? 'Modifier la réception' : 'Réceptionner';
+    return `<div class="hist-row">
+      <div class="hist-info">
+        <span class="hist-ref">${esc(c.ref)}</span>
+        <span class="hist-date">${ds} · ${c.lignes.length} produit(s)</span>
+      </div>
+      <div class="hist-right">
+        ${badge}
+        <span class="hist-mont">${eur(c.total)}</span>
+        <button class="btn ${recu?'btn-ghost':'btn-terre'}" style="padding:8px 15px;font-size:13.5px" data-rec="${esc(c.ref)}">📥 ${libBtn}</button>
+        <button class="del-btn" style="opacity:.6" data-supref="${esc(c.ref)}" title="Supprimer">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.querySelectorAll('[data-rec]').forEach(b=>{
+    b.addEventListener('click', e=>ouvrirSaisie(e.currentTarget.dataset.rec));
+  });
+  body.querySelectorAll('[data-supref]').forEach(b=>{
+    b.addEventListener('click', async e=>{
+      const ref = e.currentTarget.dataset.supref;
+      await Data.remove(ref);
+      await Data.list();
+      renderRecListe(); majRecCount();
+      toast('Commande supprimée');
+    });
+  });
+}
+
+function ouvrirSaisie(ref){
+  const cmd = _cmds.find(c=>c.ref===ref);
+  if(!cmd) return;
+  recRefCourante = ref;
+  document.getElementById('recSaisieRef').textContent = ref;
+
+  const corps = document.getElementById('recCorps');
+  corps.innerHTML = cmd.lignes.map((l,i)=>`
+    <tr>
+      <td>${esc(l.cat)}</td>
+      <td>${esc(l.prod)}</td>
+      <td>${esc(l.cond)}</td>
+      <td class="montant" style="color:var(--encre)">${+l.qte||0}</td>
+      <td class="col-livr"><input class="cell-in num livr" data-ri="${i}" type="number" min="0" step="1"
+           value="${l.livr!==''&&l.livr!=null?l.livr:''}" placeholder="${+l.qte||0}"></td>
+    </tr>`).join('');
+
+  corps.querySelectorAll('.cell-in').forEach(inp=>{
+    inp.addEventListener('input', majRecTotaux);
+  });
+
+  document.getElementById('recSaisie').style.display = '';
+  majRecTotaux();
+  document.getElementById('recSaisie').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function majRecTotaux(){
+  const cmd = _cmds.find(c=>c.ref===recRefCourante);
+  if(!cmd) return;
+  let totCmd=0, totLivr=0, ecart=false;
+  const inputs = document.querySelectorAll('#recCorps .cell-in');
+  cmd.lignes.forEach((l,i)=>{
+    const v = inputs[i] ? (+inputs[i].value||0) : 0;
+    totCmd += (+l.qte||0);
+    totLivr += v;
+    if(inputs[i] && inputs[i].value!=='' && v!==(+l.qte||0)) ecart=true;
+  });
+  document.getElementById('recTotCmd').textContent = totCmd;
+  document.getElementById('recTotLivr').textContent = totLivr;
+  document.getElementById('recEcart').innerHTML = ecart
+    ? '⚠️ <b>Un ou plusieurs écarts</b> entre quantités commandées et reçues. Vérifiez avant de valider.'
+    : '💡 Saisissez les quantités réellement reçues. Laissez vide pour reprendre la quantité commandée.';
+}
+
+async function validerReception(){
+  const cmd = _cmds.find(c=>c.ref===recRefCourante);
+  if(!cmd) return;
+  const inputs = document.querySelectorAll('#recCorps .cell-in');
+  const lignes = cmd.lignes.map((l,i)=>{
+    const raw = inputs[i] ? inputs[i].value : '';
+    return {...l, livr: raw==='' ? (+l.qte||0) : (+raw||0)};   // vide = qté commandée
+  });
+
+  const btn = document.getElementById('recValider');
+  btn.disabled = true; const lib = btn.textContent; btn.textContent='⏳ Enregistrement…';
+  try{
+    const res = await Data.receive(recRefCourante, lignes);
+    if(res && res.ok){
+      await Data.list();
+      document.getElementById('recSaisie').style.display = 'none';
+      renderRecListe(); majRecCount();
+      toast('Réception validée ✓');
+    }else{
+      toast('Échec de l\'enregistrement','⚠️');
+    }
+  }catch(e){
+    toast('Connexion au serveur impossible','⚠️');
+  }finally{
+    btn.disabled=false; btn.textContent=lib;
+  }
+}
+
+async function majRecCount(){
+  const cmds = enLigne() ? _cmds : (Store.get('commandes') || []);
+  const enAttente = cmds.filter(c=>c.statut!=='recu').length;
+  document.getElementById('recCount').textContent = enAttente;
+}
+
+/* ═══════════ NAVIGATION & UTILS ═══════════ */
+function switchVue(nom, tab){
+  document.querySelectorAll('.vue').forEach(v=>v.classList.remove('actif'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('actif'));
+  document.getElementById('vue-'+nom).classList.add('actif');
+  tab.classList.add('actif');
+  if(nom==='recap') buildRecap();
+  if(nom==='reception') buildReception();
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let toastTimer;
+function toast(msg, ic='✓'){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.querySelector('.ic').textContent = ic;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+init();
+</script>
+</body>
+</html>
