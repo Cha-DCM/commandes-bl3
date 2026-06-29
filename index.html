@@ -394,11 +394,13 @@ tfoot .montant-tot{
         <table>
           <thead>
             <tr>
-              <th style="width:18%">Catégorie</th>
-              <th style="width:32%">Produit</th>
-              <th style="width:20%">Conditionnement</th>
-              <th class="num" style="width:15%">Qté commandée</th>
-              <th class="col-livr num" style="width:15%">Qté reçue</th>
+              <th style="width:13%">Catégorie</th>
+              <th style="width:23%">Produit</th>
+              <th style="width:13%">Conditionnement</th>
+              <th class="num" style="width:9%">Qté cmd.</th>
+              <th class="col-livr num" style="width:10%">Qté reçue</th>
+              <th class="num" style="width:15%">Montant commandé</th>
+              <th class="col-livr num" style="width:15%">Montant livré</th>
             </tr>
           </thead>
           <tbody id="recCorps"></tbody>
@@ -407,6 +409,8 @@ tfoot .montant-tot{
               <td class="lbl" colspan="3">TOTAL</td>
               <td class="num" id="recTotCmd">0</td>
               <td class="num livr" id="recTotLivr">0</td>
+              <td class="montant-tot" id="recTotMontCmd">0,00 €</td>
+              <td class="montant-tot" id="recTotMontLivr" style="color:var(--livr)">0,00 €</td>
             </tr>
           </tfoot>
         </table>
@@ -788,13 +792,14 @@ function renderRecap(){
   const totQte = rows.reduce((s,r)=>s+r.qte,0);
   const totLivr= rows.reduce((s,r)=>s+r.livr,0);
   const totCA  = rows.reduce((s,r)=>s+r.qte*r.prix,0);
+  const totCALivr = rows.reduce((s,r)=>s+r.livr*r.prix,0);
 
   // stats
   document.getElementById('recapStats').innerHTML = `
     <div class="stat v"><div class="lab">Commandes du mois</div><div class="val">${duMois.length}</div></div>
-    <div class="stat"><div class="lab">Produits commandés</div><div class="val">${totQte}</div></div>
-    <div class="stat l"><div class="lab">Produits livrés</div><div class="val" style="color:var(--livr)">${totLivr}</div></div>
-    <div class="stat terre"><div class="lab">Chiffre d'affaires</div><div class="val">${eur(totCA)}</div></div>`;
+    <div class="stat"><div class="lab">CA commandé</div><div class="val">${eur(totCA)}</div></div>
+    <div class="stat l"><div class="lab">CA livré</div><div class="val" style="color:var(--livr)">${eur(totCALivr)}</div></div>
+    <div class="stat terre"><div class="lab">Écart (manque)</div><div class="val">${eur(totCA-totCALivr)}</div></div>`;
 
   const body = document.getElementById('recapBody');
   if(!rows.length){
@@ -804,19 +809,23 @@ function renderRecap(){
   body.innerHTML = `<table><thead><tr>
       <th>Catégorie</th><th>Produit</th><th>Conditionnement</th>
       <th class="num">Qté commandée</th><th class="col-livr num">Qté livrée</th>
-      <th class="num">Prix vente unit.</th><th class="num">CA produit</th>
+      <th class="num">Prix vente unit.</th><th class="num">CA commandé</th><th class="col-livr num">CA livré</th>
     </tr></thead><tbody>${
-      rows.map(r=>`<tr>
+      rows.map(r=>{
+        const caCmd=r.qte*r.prix, caLivr=r.livr*r.prix;
+        return `<tr>
         <td>${esc(r.cat)}</td><td>${esc(r.prod)}</td><td>${esc(r.cond)}</td>
         <td class="montant" style="color:var(--encre)">${r.qte}</td>
         <td class="col-livr montant" style="color:var(--livr)">${r.livr}</td>
         <td class="montant" style="color:var(--encre)">${eur(r.prix)}</td>
-        <td class="montant">${eur(r.qte*r.prix)}</td>
-      </tr>`).join('')
+        <td class="montant" style="color:var(--encre)">${eur(caCmd)}</td>
+        <td class="col-livr montant" style="color:${caLivr<caCmd?'var(--terre)':'var(--livr)'}">${eur(caLivr)}</td>
+      </tr>`;}).join('')
     }</tbody><tfoot><tr>
       <td class="lbl" colspan="3">TOTAL DU MOIS</td>
       <td class="num">${totQte}</td><td class="num livr">${totLivr}</td>
       <td></td><td class="montant-tot">${eur(totCA)}</td>
+      <td class="montant-tot" style="color:var(--livr)">${eur(totCALivr)}</td>
     </tr></tfoot></table>`;
 }
 
@@ -859,14 +868,31 @@ function renderRecListe(){
       ? '<span class="badge recu">✓ Réceptionnée</span>'
       : '<span class="badge attente">⏳ À réceptionner</span>';
     const libBtn = recu ? 'Modifier la réception' : 'Réceptionner';
+
+    // montant livré (pour les commandes réceptionnées)
+    const montLivr = (c.lignes||[]).reduce((s,l)=>{
+      const livr = (l.livr!=='' && l.livr!=null) ? (+l.livr||0) : (+l.qte||0);
+      return s + livr*(+l.prix||0);
+    },0);
+    const manque = c.total - montLivr;
+    let bloc;
+    if(recu && manque > 0.001){
+      bloc = `<span class="hist-mont" style="text-align:right;line-height:1.3">
+                <span style="text-decoration:line-through;color:var(--gris);font-weight:500;font-size:12.5px">${eur(c.total)}</span><br>
+                <span style="color:var(--terre)">${eur(montLivr)} livré</span>
+              </span>`;
+    } else {
+      bloc = `<span class="hist-mont">${eur(c.total)}</span>`;
+    }
+
     return `<div class="hist-row">
       <div class="hist-info">
         <span class="hist-ref">${esc(c.ref)}</span>
-        <span class="hist-date">${ds} · ${c.lignes.length} produit(s)</span>
+        <span class="hist-date">${ds} · ${c.lignes.length} produit(s)${recu && manque>0.001 ? ' · <b style="color:var(--terre)">manque '+eur(manque)+'</b>' : ''}</span>
       </div>
       <div class="hist-right">
         ${badge}
-        <span class="hist-mont">${eur(c.total)}</span>
+        ${bloc}
         <button class="btn ${recu?'btn-ghost':'btn-terre'}" style="padding:8px 15px;font-size:13.5px" data-rec="${esc(c.ref)}">📥 ${libBtn}</button>
         <button class="del-btn" style="opacity:.6" data-supref="${esc(c.ref)}" title="Supprimer">🗑️</button>
       </div>
@@ -894,15 +920,19 @@ function ouvrirSaisie(ref){
   document.getElementById('recSaisieRef').textContent = ref;
 
   const corps = document.getElementById('recCorps');
-  corps.innerHTML = cmd.lignes.map((l,i)=>`
+  corps.innerHTML = cmd.lignes.map((l,i)=>{
+    const qte=+l.qte||0, prix=+l.prix||0;
+    return `
     <tr>
       <td>${esc(l.cat)}</td>
       <td>${esc(l.prod)}</td>
       <td>${esc(l.cond)}</td>
-      <td class="montant" style="color:var(--encre)">${+l.qte||0}</td>
+      <td class="montant" style="color:var(--encre)">${qte}</td>
       <td class="col-livr"><input class="cell-in num livr" data-ri="${i}" type="number" min="0" step="1"
-           value="${l.livr!==''&&l.livr!=null?l.livr:''}" placeholder="${+l.qte||0}"></td>
-    </tr>`).join('');
+           value="${l.livr!==''&&l.livr!=null?l.livr:''}" placeholder="${qte}"></td>
+      <td class="montant" style="color:var(--encre)">${eur(qte*prix)}</td>
+      <td class="col-livr montant" data-rml="${i}" style="color:var(--livr)">${eur(qte*prix)}</td>
+    </tr>`;}).join('');
 
   corps.querySelectorAll('.cell-in').forEach(inp=>{
     inp.addEventListener('input', majRecTotaux);
@@ -916,18 +946,31 @@ function ouvrirSaisie(ref){
 function majRecTotaux(){
   const cmd = _cmds.find(c=>c.ref===recRefCourante);
   if(!cmd) return;
-  let totCmd=0, totLivr=0, ecart=false;
+  let totCmd=0, totLivr=0, montCmd=0, montLivr=0, ecart=false;
   const inputs = document.querySelectorAll('#recCorps .cell-in');
   cmd.lignes.forEach((l,i)=>{
-    const v = inputs[i] ? (+inputs[i].value||0) : 0;
-    totCmd += (+l.qte||0);
-    totLivr += v;
-    if(inputs[i] && inputs[i].value!=='' && v!==(+l.qte||0)) ecart=true;
+    const qte=+l.qte||0, prix=+l.prix||0;
+    const raw = inputs[i] ? inputs[i].value : '';
+    const livr = raw==='' ? qte : (+raw||0);     // vide = qté commandée
+    totCmd  += qte;       totLivr  += livr;
+    montCmd += qte*prix;  montLivr += livr*prix;
+    if(raw!=='' && livr!==qte) ecart=true;
+    // montant livré de la ligne (rouge si manquant)
+    const cell = document.querySelector('#recCorps [data-rml="'+i+'"]');
+    if(cell){
+      cell.textContent = eur(livr*prix);
+      cell.style.color = (raw!=='' && livr<qte) ? 'var(--terre)' : 'var(--livr)';
+    }
   });
-  document.getElementById('recTotCmd').textContent = totCmd;
-  document.getElementById('recTotLivr').textContent = totLivr;
+  document.getElementById('recTotCmd').textContent      = totCmd;
+  document.getElementById('recTotLivr').textContent     = totLivr;
+  document.getElementById('recTotMontCmd').textContent  = eur(montCmd);
+  document.getElementById('recTotMontLivr').textContent = eur(montLivr);
+  document.getElementById('recTotMontLivr').style.color = (montLivr<montCmd) ? 'var(--terre)' : 'var(--livr)';
+
+  const manque = montCmd - montLivr;
   document.getElementById('recEcart').innerHTML = ecart
-    ? '⚠️ <b>Un ou plusieurs écarts</b> entre quantités commandées et reçues. Vérifiez avant de valider.'
+    ? `⚠️ <b>Livraison incomplète</b> — manque <b>${eur(manque)}</b> (commandé ${eur(montCmd)} · livré ${eur(montLivr)}).`
     : '💡 Saisissez les quantités réellement reçues. Laissez vide pour reprendre la quantité commandée.';
 }
 
