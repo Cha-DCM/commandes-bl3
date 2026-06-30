@@ -273,6 +273,18 @@ tfoot .montant-tot{
 
 .hint{font-size:13px;color:var(--gris);padding:0 26px 20px;line-height:1.6}
 .hint b{color:var(--vert-clair)}
+.commentaire-bloc{padding:0 26px 18px}
+.commentaire-bloc label{
+  display:block;font-size:13.5px;font-weight:600;color:var(--vert);margin-bottom:7px;
+}
+.commentaire-bloc textarea{
+  width:100%;font-family:'DM Sans',sans-serif;font-size:14.5px;color:var(--encre);
+  background:var(--blanc);border:1px solid var(--ligne);border-radius:11px;
+  padding:11px 13px;resize:vertical;line-height:1.5;transition:.15s;
+}
+.commentaire-bloc textarea:hover{border-color:var(--terre-clair)}
+.commentaire-bloc textarea:focus{outline:none;border-color:var(--terre);box-shadow:0 0 0 3px rgba(196,98,45,.12)}
+.commentaire-bloc textarea::placeholder{color:#b0a894}
 
 @media (max-width:640px){
   .head-inner{padding:20px}
@@ -347,6 +359,11 @@ tfoot .montant-tot{
       </div>
       <div class="hint">
         💡 Renseignez uniquement la colonne <b>Qté commandée</b> (champ surligné) ; produits et tarifs proviennent du catalogue et ne sont pas modifiables ici. À l'envoi, la commande est <b>transmise par e-mail</b>, archivée en <b>PDF sur le Drive</b> et enregistrée dans l'espace partagé. Les <b>quantités reçues</b> se saisissent ensuite dans l'onglet <b>« Réceptionner »</b>.
+      </div>
+      <div class="commentaire-bloc">
+        <label for="cmdCommentaire">💬 Commentaire (facultatif)</label>
+        <textarea id="cmdCommentaire" rows="3" maxlength="800"
+          placeholder="Précisions pour le fournisseur : créneau de livraison, demande particulière… S'affichera sur le bon de commande PDF si rempli."></textarea>
       </div>
       <div class="actions">
         <button class="btn btn-primaire" id="btnEnregistrer">📤 Envoyer la commande</button>
@@ -709,6 +726,7 @@ function resetCmd(){
   ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''}));
   refActuelle = nouvelleRef();
   document.getElementById('refCmd').textContent = refActuelle;
+  const com = document.getElementById('cmdCommentaire'); if(com) com.value = '';
   renderCmd();
   toast('Nouvelle commande prête');
 }
@@ -731,6 +749,7 @@ async function enregistrer(){
     ref: refActuelle,
     date: new Date().toISOString(),
     etablissement: document.getElementById('etabNom').value || 'BL3 city',
+    commentaire: (document.getElementById('cmdCommentaire').value || '').trim(),
     lignes, total,
     statut: 'attente'
   };
