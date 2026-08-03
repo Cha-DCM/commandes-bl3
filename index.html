@@ -233,6 +233,7 @@ tfoot .montant-tot{
 .btn-terre:hover{background:#d56f38}
 .btn-ghost{background:var(--creme-2);color:var(--vert)}
 .btn-ghost:hover{background:#e6dcc6}
+#btnMajTarifs.charge{opacity:.6;pointer-events:none}
 .btn-add{
   background:transparent;color:var(--terre);border:1.5px dashed var(--terre-clair);
   margin:14px 26px;padding:12px;width:calc(100% - 52px);justify-content:center;
@@ -353,7 +354,11 @@ tfoot .montant-tot{
     <div class="panel">
       <div class="panel-head">
         <h2>📝 Bon de commande</h2>
-        <span class="ref" id="refCmd">CMD-…</span>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span id="tarifsEtat" style="font-size:12.5px;color:var(--gris)"></span>
+          <button class="btn btn-ghost" id="btnMajTarifs" style="padding:7px 13px;font-size:13px">🔄 Actualiser les tarifs</button>
+          <span class="ref" id="refCmd">CMD-…</span>
+        </div>
       </div>
       <div class="tbl-wrap">
         <table id="tblCmd">
@@ -497,7 +502,7 @@ const Data = {
   async list(){
     if(enLigne()){
       try{
-        const r = await fetch(CONFIG.API_URL + '?action=list&t=' + Date.now());
+        const r = await fetch(CONFIG.API_URL + '?action=list&t=' + Date.now(), {cache:'no-store'});
         const d = await r.json();
         _cmds = d.commandes || [];
         Store.set('commandes', _cmds);          // copie locale de secours
@@ -556,12 +561,17 @@ const Data = {
   async catalog(){
     if(enLigne()){
       try{
-        const r = await fetch(CONFIG.API_URL + '?action=catalog&t=' + Date.now());
+        const r = await fetch(CONFIG.API_URL + '?action=catalog&t=' + Date.now(), {cache:'no-store'});
         const d = await r.json();
-        if(d.ok && d.articles && d.articles.length) return d.articles;
+        if(d.ok && d.articles && d.articles.length){
+          Store.set('catalogue_cache', {articles:d.articles, ts:Date.now()});  // mémorise les derniers prix réels
+          return d.articles;
+        }
       }catch(e){ /* repli */ }
     }
-    return CATALOGUE_DEFAUT.slice();
+    // repli : dernier catalogue serveur connu, sinon liste intégrée
+    const c = Store.get('catalogue_cache');
+    return (c && c.articles && c.articles.length) ? c.articles.slice() : CATALOGUE_DEFAUT.slice();
   },
   async photo(ref, idx, dataUrl){
     if(enLigne()){
@@ -662,7 +672,11 @@ const CATALOGUE_DEFAUT = [
 ];
 
 let ligneEnCours = [];   // lignes du bon de commande en cours
-let catalogue = CATALOGUE_DEFAUT.slice();  // articles de référence (chargés du backend si dispo)
+let catalogue = catalogueInitial();  // derniers tarifs connus (cache serveur) sinon liste intégrée
+function catalogueInitial(){
+  const c = Store.get('catalogue_cache');
+  return (c && c.articles && c.articles.length) ? c.articles.slice() : CATALOGUE_DEFAUT.slice();
+}
 let refActuelle  = '';
 const moisFr = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 
@@ -687,15 +701,10 @@ function init(){
   refActuelle = nouvelleRef();
   document.getElementById('refCmd').textContent = refActuelle;
 
-  // lignes par défaut depuis le catalogue (repli immédiat, puis maj backend)
+  // lignes par défaut depuis le catalogue (derniers tarifs connus, puis maj serveur)
   ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''}));
   renderCmd();
-  Data.catalog().then(arts=>{
-    catalogue = arts;
-    // ne recharge le formulaire que si l'utilisateur n'a encore rien saisi
-    const vierge = ligneEnCours.every(l=>!l.qte);
-    if(vierge){ ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''})); renderCmd(); }
-  });
+  rafraichirTarifs();
 
   // onglets
   document.querySelectorAll('.tab').forEach(t=>{
@@ -704,6 +713,7 @@ function init(){
 
   // boutons
   document.getElementById('btnEnregistrer').addEventListener('click', enregistrer);
+  document.getElementById('btnMajTarifs').addEventListener('click', ()=>rafraichirTarifs(true));
   document.getElementById('btnReset').addEventListener('click', resetCmd);
   document.getElementById('recValider').addEventListener('click', validerReception);
   document.getElementById('recAnnuler').addEventListener('click', ()=>{
@@ -768,6 +778,32 @@ function majTotaux(){
   ligneEnCours.forEach(l=>{q+=(+l.qte||0); m+=(+l.qte||0)*(+l.prix||0);});
   document.getElementById('totQteCmd').textContent  = q;
   document.getElementById('totMontant').textContent = eur(m);
+}
+async function rafraichirTarifs(manuel){
+  const etat = document.getElementById('tarifsEtat');
+  const btn  = document.getElementById('btnMajTarifs');
+  if(etat) etat.textContent = '⏳ Mise à jour des tarifs…';
+  if(btn) btn.classList.add('charge');
+  const arts = await Data.catalog();
+  catalogue = arts;
+  const vierge = ligneEnCours.every(l=>!l.qte);
+  if(vierge){
+    // aucune quantité saisie : on reconstruit à partir des tarifs à jour
+    ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''}));
+  }else{
+    // on met à jour prix/libellés sans perdre les quantités déjà saisies
+    ligneEnCours = ligneEnCours.map(l=>{
+      const a = catalogue.find(x=>x.prod===l.prod && x.cond===l.cond)
+             || catalogue.find(x=>x.prod===l.prod);
+      return a ? {...l, cat:a.cat, cond:a.cond, prix:a.prix} : l;
+    });
+  }
+  renderCmd();
+  const heure = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  const src = enLigne() ? 'serveur' : 'local';
+  if(etat) etat.textContent = `Tarifs à jour (${src}) · ${heure}`;
+  if(btn) btn.classList.remove('charge');
+  if(manuel) toast('Tarifs actualisés ✓','🔄');
 }
 function resetCmd(){
   ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''}));
