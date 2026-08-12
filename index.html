@@ -394,6 +394,7 @@ tfoot .montant-tot{
       <div class="actions">
         <button class="btn btn-primaire" id="btnEnregistrer">📤 Envoyer la commande</button>
         <button class="btn btn-ghost" id="btnReset">↺ Nouvelle commande</button>
+        <span id="brouillonEtat" style="font-size:12.5px;color:var(--livr)"></span>
         <span id="envoiEtat" style="font-size:13px;color:var(--gris)"></span>
       </div>
     </div>
@@ -692,6 +693,8 @@ function init(){
   // nom établissement
   const nom = Store.get('etab'); if(nom) document.getElementById('etabNom').value = nom;
   document.getElementById('etabNom').addEventListener('input', e=>Store.set('etab', e.target.value));
+  // commentaire : sauvegarde du brouillon au fil de la frappe
+  document.getElementById('cmdCommentaire').addEventListener('input', sauverBrouillonCmd);
 
   // date du jour
   const d = new Date();
@@ -703,7 +706,9 @@ function init(){
 
   // lignes par défaut depuis le catalogue (derniers tarifs connus, puis maj serveur)
   ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''}));
+  const brouillonRestaure = appliquerBrouillonCmd();   // restaure une saisie en cours éventuelle
   renderCmd();
+  if(brouillonRestaure) toast('Brouillon de commande restauré 📝');
   rafraichirTarifs();
 
   // onglets
@@ -769,6 +774,7 @@ function renderCmd(){
       e.target.closest('tr').querySelector('.montant').textContent =
         eur((+ligneEnCours[i].qte||0)*(+ligneEnCours[i].prix||0));
       majTotaux();
+      sauverBrouillonCmd();
     });
   });
   majTotaux();
@@ -805,7 +811,43 @@ async function rafraichirTarifs(manuel){
   if(btn) btn.classList.remove('charge');
   if(manuel) toast('Tarifs actualisés ✓','🔄');
 }
+/* ─── Brouillon du bon de commande (saisie au fil de l'eau) ─── */
+function cleCmd(l){ return (l.prod||'')+'|'+(l.cond||''); }
+function sauverBrouillonCmd(){
+  const items = {};
+  ligneEnCours.forEach(l=>{ if(l.qte!=='' && l.qte!=null && +l.qte>0) items[cleCmd(l)] = l.qte; });
+  const commentaire = document.getElementById('cmdCommentaire').value || '';
+  if(Object.keys(items).length===0 && !commentaire.trim()){
+    Store.set('cmdDraft', null);
+    majEtatBrouillonCmd(false);
+    return;
+  }
+  Store.set('cmdDraft', {items, commentaire, ts:Date.now()});
+  majEtatBrouillonCmd(true);
+}
+function appliquerBrouillonCmd(){
+  const d = Store.get('cmdDraft');
+  if(!d) return false;
+  if(d.items) ligneEnCours.forEach(l=>{ const v=d.items[cleCmd(l)]; if(v!=null) l.qte=v; });
+  const com = document.getElementById('cmdCommentaire');
+  if(com && d.commentaire!=null) com.value = d.commentaire;
+  const aDuContenu = Object.keys(d.items||{}).length>0 || !!(d.commentaire||'').trim();
+  if(aDuContenu) majEtatBrouillonCmd(true);
+  return aDuContenu;
+}
+function supprimerBrouillonCmd(){
+  Store.set('cmdDraft', null);
+  majEtatBrouillonCmd(false);
+}
+function majEtatBrouillonCmd(actif){
+  const el = document.getElementById('brouillonEtat');
+  if(!el) return;
+  el.textContent = actif
+    ? '📝 Brouillon enregistré · ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
+    : '';
+}
 function resetCmd(){
+  supprimerBrouillonCmd();
   ligneEnCours = catalogue.map(p=>({...p, qte:'', livr:''}));
   refActuelle = nouvelleRef();
   document.getElementById('refCmd').textContent = refActuelle;
@@ -848,6 +890,7 @@ async function enregistrer(){
         etat.innerHTML = '✅ E-mail envoyé · PDF archivé sur le Drive';
       }
       await majRecCount();
+      supprimerBrouillonCmd();      // commande envoyée : le brouillon n'a plus lieu d'être
       // prépare une nouvelle commande
       setTimeout(resetCmd, 900);
     }else{
@@ -1024,10 +1067,20 @@ function ouvrirSaisie(ref){
   recPhotos = {};   // réinitialise les photos de la session
   document.getElementById('recSaisieRef').textContent = ref;
 
+  // brouillon éventuel d'une saisie précédente non validée
+  const draft = Store.get('recDraft_'+ref);
+  // on n'applique le brouillon que si la commande n'est pas déjà réceptionnée
+  const draftOk = draft && draft.livr && draft.livr.length === cmd.lignes.length && cmd.statut !== 'recu';
+  if(draft && cmd.statut === 'recu') supprimerBrouillon(ref);   // nettoie un brouillon obsolète
+
   const corps = document.getElementById('recCorps');
   corps.innerHTML = cmd.lignes.map((l,i)=>{
     const qte=+l.qte||0, prix=+l.prix||0;
-    if(l.photoUrl) recPhotos[i] = { url:l.photoUrl };
+    // photo : priorité au brouillon, sinon photo déjà enregistrée
+    const purl = (draftOk && draft.photos && draft.photos[i]) || l.photoUrl;
+    if(purl) recPhotos[i] = { url:purl };
+    // quantité reçue : priorité au brouillon (valeur brute), sinon valeur enregistrée
+    const livrVal = draftOk ? (draft.livr[i] ?? '') : (l.livr!==''&&l.livr!=null?l.livr:'');
     return `
     <tr>
       <td>${esc(l.cat)}</td>
@@ -1035,7 +1088,7 @@ function ouvrirSaisie(ref){
       <td>${esc(l.cond)}</td>
       <td class="montant" style="color:var(--encre)">${qte}</td>
       <td class="col-livr"><input class="cell-in num livr" data-ri="${i}" type="number" min="0" step="1"
-           value="${l.livr!==''&&l.livr!=null?l.livr:''}" placeholder="${qte}"></td>
+           value="${livrVal}" placeholder="${qte}"></td>
       <td class="montant" style="color:var(--encre)">${eur(qte*prix)}</td>
       <td class="col-livr montant" data-rml="${i}" style="color:var(--livr)">${eur(qte*prix)}</td>
       <td class="col-photo" data-phcell="${i}">${photoCellHtml(i)}
@@ -1044,13 +1097,24 @@ function ouvrirSaisie(ref){
     </tr>`;}).join('');
 
   corps.querySelectorAll('.cell-in').forEach(inp=>{
-    inp.addEventListener('input', majRecTotaux);
+    inp.addEventListener('input', ()=>{ majRecTotaux(); sauverBrouillon(ref); });
   });
 
   document.getElementById('recSaisie').style.display = '';
   majRecTotaux();
+  if(draftOk) toast('Saisie précédente restaurée 📝');
   document.getElementById('recSaisie').scrollIntoView({behavior:'smooth',block:'start'});
 }
+
+// ─── Brouillon local (anti-perte de saisie) ───
+function sauverBrouillon(ref){
+  const inputs = document.querySelectorAll('#recCorps .cell-in');
+  const livr = Array.from(inputs).map(inp=>inp.value);
+  const photos = {};
+  Object.keys(recPhotos).forEach(k=>{ if(recPhotos[k] && recPhotos[k].url) photos[k]=recPhotos[k].url; });
+  Store.set('recDraft_'+ref, {livr, photos, ts:Date.now()});
+}
+function supprimerBrouillon(ref){ Store.set('recDraft_'+ref, null); }
 
 // ─── Photos DLC ───
 function photoCellHtml(i){
@@ -1092,6 +1156,7 @@ async function capturerPhoto(i, file){
       recPhotos[i] = { url: res.url || dataUrl };
       cell.innerHTML = photoCellHtml(i) +
         '<input type="file" accept="image/*" capture="environment" class="photo-input" data-phi="'+i+'" hidden>';
+      sauverBrouillon(recRefCourante);   // conserve la photo dans le brouillon
       toast('Photo DLC enregistrée ✓','📷');
     }else{
       toast('Échec de l\'envoi de la photo','⚠️');
@@ -1137,6 +1202,7 @@ function majRecTotaux(){
 async function validerReception(){
   const cmd = _cmds.find(c=>c.ref===recRefCourante);
   if(!cmd) return;
+  const ref = recRefCourante;
   const inputs = document.querySelectorAll('#recCorps .cell-in');
   const lignes = cmd.lignes.map((l,i)=>{
     const raw = inputs[i] ? inputs[i].value : '';
@@ -1145,22 +1211,41 @@ async function validerReception(){
     return ligne;
   });
 
+  // filet de sécurité : brouillon local conservé AVANT tout envoi
+  sauverBrouillon(ref);
+
   const btn = document.getElementById('recValider');
   btn.disabled = true; const lib = btn.textContent; btn.textContent='⏳ Enregistrement…';
+
+  // 1) tentative d'enregistrement
+  let ok = false;
   try{
-    const res = await Data.receive(recRefCourante, lignes);
-    if(res && res.ok){
+    const res = await Data.receive(ref, lignes);
+    ok = !!(res && res.ok);
+  }catch(e){ ok = false; }
+
+  // 2) si pas de confirmation, on vérifie côté serveur : l'écriture a pu réussir
+  //    malgré une réponse non lue (limitation connue d'Apps Script)
+  if(!ok){
+    try{
+      await new Promise(r=>setTimeout(r, 1200));   // laisse le serveur finir l'écriture
       await Data.list();
-      document.getElementById('recSaisie').style.display = 'none';
-      renderRecListe(); majRecCount();
-      toast('Réception validée ✓');
-    }else{
-      toast('Échec de l\'enregistrement','⚠️');
-    }
-  }catch(e){
-    toast('Connexion au serveur impossible','⚠️');
-  }finally{
-    btn.disabled=false; btn.textContent=lib;
+      const c = _cmds.find(x=>x.ref===ref);
+      if(c && c.statut==='recu') ok = true;
+    }catch(e){}
+  }
+
+  btn.disabled=false; btn.textContent=lib;
+
+  if(ok){
+    supprimerBrouillon(ref);                       // saisie confirmée : on efface le brouillon
+    await Data.list();
+    document.getElementById('recSaisie').style.display = 'none';
+    renderRecListe(); majRecCount();
+    toast('Réception validée ✓');
+  }else{
+    // rien n'est perdu : le panneau reste ouvert et le brouillon est conservé
+    toast('Enregistrement non confirmé — vos saisies sont conservées, réessayez','⚠️');
   }
 }
 
