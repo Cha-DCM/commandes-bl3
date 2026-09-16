@@ -131,6 +131,28 @@ main{max-width:1180px;margin:0 auto;padding:30px 32px 80px}
 
 /* ───── TABLEAU ───── */
 .tbl-wrap{overflow-x:auto}
+.cmd-search{
+  position:relative;display:flex;align-items:center;
+  margin:16px 26px 4px;
+}
+.cmd-search .loupe{
+  position:absolute;left:14px;font-size:15px;pointer-events:none;opacity:.6;
+}
+.cmd-search input{
+  width:100%;font-family:'DM Sans',sans-serif;font-size:14.5px;color:var(--encre);
+  background:var(--blanc);border:1px solid var(--ligne);border-radius:11px;
+  padding:11px 40px 11px 40px;transition:.15s;
+}
+.cmd-search input:hover{border-color:var(--terre-clair)}
+.cmd-search input:focus{outline:none;border-color:var(--terre);box-shadow:0 0 0 3px rgba(196,98,45,.12)}
+.cmd-search input::placeholder{color:#b0a894}
+.cmd-search input::-webkit-search-cancel-button{-webkit-appearance:none}
+.cmd-search #rechercheClear{
+  position:absolute;right:10px;background:var(--creme-2);border:none;cursor:pointer;
+  width:26px;height:26px;border-radius:7px;color:var(--gris);font-size:13px;
+  display:grid;place-items:center;transition:.15s;
+}
+.cmd-search #rechercheClear:hover{background:#e6dcc6;color:var(--terre)}
 table{width:100%;border-collapse:collapse;min-width:760px}
 thead th{
   background:var(--vert);color:var(--creme);
@@ -359,6 +381,11 @@ tfoot .montant-tot{
           <button class="btn btn-ghost" id="btnMajTarifs" style="padding:7px 13px;font-size:13px">🔄 Actualiser les tarifs</button>
           <span class="ref" id="refCmd">CMD-…</span>
         </div>
+      </div>
+      <div class="cmd-search">
+        <span class="loupe">🔍</span>
+        <input id="rechercheCmd" type="search" autocomplete="off" placeholder="Rechercher un article (nom, catégorie, conditionnement)…">
+        <button id="rechercheClear" type="button" title="Effacer" hidden>✕</button>
       </div>
       <div class="tbl-wrap">
         <table id="tblCmd">
@@ -673,6 +700,7 @@ const CATALOGUE_DEFAUT = [
 ];
 
 let ligneEnCours = [];   // lignes du bon de commande en cours
+let filtreCmd = '';      // texte de recherche dans le bon de commande
 let catalogue = catalogueInitial();  // derniers tarifs connus (cache serveur) sinon liste intégrée
 function catalogueInitial(){
   const c = Store.get('catalogue_cache');
@@ -695,6 +723,19 @@ function init(){
   document.getElementById('etabNom').addEventListener('input', e=>Store.set('etab', e.target.value));
   // commentaire : sauvegarde du brouillon au fil de la frappe
   document.getElementById('cmdCommentaire').addEventListener('input', sauverBrouillonCmd);
+
+  // recherche d'article dans le bon de commande
+  const rech = document.getElementById('rechercheCmd');
+  const rechClear = document.getElementById('rechercheClear');
+  rech.addEventListener('input', e=>{
+    filtreCmd = e.target.value;
+    rechClear.hidden = !filtreCmd;
+    renderCmd();
+  });
+  rechClear.addEventListener('click', ()=>{
+    filtreCmd = ''; rech.value = ''; rechClear.hidden = true;
+    renderCmd(); rech.focus();
+  });
 
   // date du jour
   const d = new Date();
@@ -744,11 +785,25 @@ function init(){
 }
 
 /* ═══════════ RENDU COMMANDE ═══════════ */
+function normaliserTxt(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
 function renderCmd(){
   const corps = document.getElementById('corpsCmd');
   corps.innerHTML = '';
+  const f = normaliserTxt(filtreCmd).trim();
+  const visibles = ligneEnCours
+    .map((l,i)=>({l,i}))
+    .filter(({l})=> !f || normaliserTxt((l.prod||'')+' '+(l.cat||'')+' '+(l.cond||'')).includes(f));
+
+  if(!visibles.length){
+    corps.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:26px;color:var(--gris)">Aucun article ne correspond à « ${esc(filtreCmd)} ».</td></tr>`;
+    majTotaux();
+    return;
+  }
+
   let catPrec = null;
-  ligneEnCours.forEach((l,i)=>{
+  visibles.forEach(({l,i})=>{
     // séparateur de catégorie
     if((l.cat||'') !== catPrec){
       catPrec = l.cat||'';
