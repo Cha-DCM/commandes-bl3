@@ -300,6 +300,55 @@ tfoot .montant-tot{
 .hist-right{display:flex;align-items:center;gap:14px}
 .hist-mont{font-weight:700;color:var(--terre);font-variant-numeric:tabular-nums}
 .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+.badge-ajout{
+  display:inline-block;font-size:10.5px;font-weight:700;color:#fff;background:var(--terre);
+  padding:1px 7px;border-radius:20px;margin-left:6px;vertical-align:middle;letter-spacing:.02em;
+}
+.sup-ln{
+  background:transparent;border:none;cursor:pointer;color:var(--gris);font-size:13px;
+  margin-left:6px;padding:1px 4px;border-radius:6px;vertical-align:middle;
+}
+.sup-ln:hover{color:var(--terre);background:#f5dcd0}
+tr.ligne-ajout td{background:rgba(196,98,45,.06)}
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(29,59,47,.45);z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:18px;
+}
+.modal-overlay[hidden]{display:none!important}
+.modal-box{
+  background:var(--blanc);border-radius:18px;box-shadow:0 20px 60px rgba(29,59,47,.35);
+  width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;
+}
+.modal-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:18px 22px;border-bottom:1px solid var(--ligne);
+  background:linear-gradient(var(--blanc),var(--creme));
+}
+.modal-head h3{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--vert)}
+.modal-x{background:var(--creme-2);border:none;cursor:pointer;width:32px;height:32px;border-radius:9px;
+  font-size:15px;color:var(--gris);display:grid;place-items:center;transition:.15s}
+.modal-x:hover{background:#e6dcc6;color:var(--terre)}
+.modal-search{position:relative;display:flex;align-items:center;padding:16px 22px 8px}
+.modal-search .loupe{position:absolute;left:36px;font-size:15px;pointer-events:none;opacity:.6}
+.modal-search input{
+  width:100%;font-family:'DM Sans',sans-serif;font-size:14.5px;color:var(--encre);
+  background:var(--blanc);border:1px solid var(--ligne);border-radius:11px;padding:11px 14px 11px 40px;
+}
+.modal-search input:focus{outline:none;border-color:var(--terre);box-shadow:0 0 0 3px rgba(196,98,45,.12)}
+.modal-liste{overflow-y:auto;padding:8px 14px 18px;flex:1}
+.modal-cat{font-family:'Fraunces',serif;font-size:12px;font-weight:600;color:var(--or);
+  text-transform:uppercase;letter-spacing:.06em;background:var(--vert);padding:6px 12px;border-radius:7px;margin:10px 0 6px}
+.modal-item{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;
+  background:var(--creme);border:1px solid var(--ligne);border-radius:10px;
+  padding:10px 14px;margin-bottom:6px;cursor:pointer;transition:.15s;text-align:left;font:inherit;
+}
+.modal-item:hover{background:rgba(216,166,87,.12);border-color:var(--terre-clair)}
+.modal-item .mi-prod{font-weight:600;color:var(--encre);font-size:14.5px}
+.modal-item .mi-cond{font-size:12.5px;color:var(--gris)}
+.modal-item .mi-prix{font-variant-numeric:tabular-nums;color:var(--vert);font-weight:600;white-space:nowrap}
+.modal-item .mi-plus{color:var(--terre);font-weight:700;font-size:18px}
+.modal-item.deja{opacity:.5;pointer-events:none}
 .badge.envoye{background:var(--livr-bg);color:var(--livr)}
 .badge.recu{background:var(--livr-bg);color:var(--livr)}
 .badge.attente{background:#f6e3d4;color:var(--terre)}
@@ -488,6 +537,7 @@ tfoot .montant-tot{
           </tfoot>
         </table>
       </div>
+      <button class="btn btn-add" id="recAjouterArticle">＋ Ajouter un article livré en plus</button>
       <div class="hint" id="recEcart"></div>
       <div class="actions">
         <button class="btn btn-primaire" id="recValider">✅ Valider la réception</button>
@@ -495,6 +545,21 @@ tfoot .montant-tot{
       </div>
     </div>
   </section>
+
+  <!-- fenêtre de sélection d'article à ajouter -->
+  <div id="recAjoutModal" class="modal-overlay" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>Ajouter un article livré en plus</h3>
+        <button class="modal-x" id="recAjoutClose" title="Fermer">✕</button>
+      </div>
+      <div class="modal-search">
+        <span class="loupe">🔍</span>
+        <input id="recAjoutSearch" type="search" autocomplete="off" placeholder="Rechercher un article…">
+      </div>
+      <div id="recAjoutListe" class="modal-liste"></div>
+    </div>
+  </div>
 </main>
 
 <div class="toast" id="toast"><span class="ic">✓</span><span id="toastMsg"></span></div>
@@ -764,12 +829,15 @@ function init(){
   document.getElementById('recValider').addEventListener('click', validerReception);
   document.getElementById('recAnnuler').addEventListener('click', ()=>{
     document.getElementById('recSaisie').style.display='none';
+    fermerAjoutArticle();
     recRefCourante=null;
   });
 
-  // délégation : boutons photo DLC (sur le tbody persistant)
+  // délégation : boutons photo DLC + retrait d'un article ajouté (tbody persistant)
   const recCorps = document.getElementById('recCorps');
   recCorps.addEventListener('click', e=>{
+    const sup = e.target.closest('[data-supln]');
+    if(sup){ supprimerLigneRec(sup.dataset.supln); return; }
     const ph = e.target.closest('[data-ph]');
     if(ph){ const inp = recCorps.querySelector('.photo-input[data-phi="'+ph.dataset.ph+'"]'); if(inp) inp.click(); return; }
     const img = e.target.closest('[data-view]');
@@ -778,6 +846,21 @@ function init(){
   recCorps.addEventListener('change', e=>{
     const inp = e.target.closest('.photo-input');
     if(inp) capturerPhoto(inp.dataset.phi, inp.files[0]);
+  });
+
+  // ajout d'un article livré en plus
+  document.getElementById('recAjouterArticle').addEventListener('click', ouvrirAjoutArticle);
+  document.getElementById('recAjoutClose').addEventListener('click', fermerAjoutArticle);
+  document.getElementById('recAjoutModal').addEventListener('click', e=>{
+    if(e.target.id==='recAjoutModal') fermerAjoutArticle();   // clic sur le fond ferme
+  });
+  document.getElementById('recAjoutSearch').addEventListener('input', renderAjoutListe);
+  document.getElementById('recAjoutListe').addEventListener('click', e=>{
+    const it = e.target.closest('[data-addidx]');
+    if(!it) return;
+    const arts = document.getElementById('recAjoutListe')._arts || [];
+    const a = arts[+it.dataset.addidx];
+    if(a) ajouterLigneRec(a);
   });
 
   // chargement initial (compteur "à réceptionner")
@@ -1031,7 +1114,8 @@ function renderRecap(){
 
 /* ═══════════ RÉCEPTION ═══════════ */
 let recRefCourante = null;
-let recPhotos = {};   // { indexLigne : {url} } pour la commande en cours de réception
+let recPhotos = {};   // { uid : {url} } pour la commande en cours de réception
+let recLignes = [];   // lignes de travail de la réception (commande + articles ajoutés)
 
 async function buildReception(){
   await Data.list();
@@ -1124,50 +1208,122 @@ function ouvrirSaisie(ref){
 
   // brouillon éventuel d'une saisie précédente non validée
   const draft = Store.get('recDraft_'+ref);
-  // on n'applique le brouillon que si la commande n'est pas déjà réceptionnée
-  const draftOk = draft && draft.livr && draft.livr.length === cmd.lignes.length && cmd.statut !== 'recu';
+  const draftOk = draft && draft.lignes && draft.lignes.length && cmd.statut !== 'recu';
   if(draft && cmd.statut === 'recu') supprimerBrouillon(ref);   // nettoie un brouillon obsolète
 
-  const corps = document.getElementById('recCorps');
-  corps.innerHTML = cmd.lignes.map((l,i)=>{
-    const qte=+l.qte||0, prix=+l.prix||0;
-    // photo : priorité au brouillon, sinon photo déjà enregistrée
-    const purl = (draftOk && draft.photos && draft.photos[i]) || l.photoUrl;
-    if(purl) recPhotos[i] = { url:purl };
-    // quantité reçue : priorité au brouillon (valeur brute), sinon valeur enregistrée
-    const livrVal = draftOk ? (draft.livr[i] ?? '') : (l.livr!==''&&l.livr!=null?l.livr:'');
-    return `
-    <tr>
-      <td>${esc(l.cat)}</td>
-      <td>${esc(l.prod)}</td>
-      <td>${esc(l.cond)}</td>
-      <td class="montant" style="color:var(--encre)">${qte}</td>
-      <td class="col-livr"><input class="cell-in num livr" data-ri="${i}" type="number" min="0" step="1"
-           value="${livrVal}" placeholder="${qte}"></td>
-      <td class="montant" style="color:var(--encre)">${eur(qte*prix)}</td>
-      <td class="col-livr montant" data-rml="${i}" style="color:var(--livr)">${eur(qte*prix)}</td>
-      <td class="col-photo" data-phcell="${i}">${photoCellHtml(i)}
-        <input type="file" accept="image/*" capture="environment" class="photo-input" data-phi="${i}" hidden>
-      </td>
-    </tr>`;}).join('');
+  let livrInit = {};
+  if(draftOk){
+    // restaure l'état complet (y compris les articles ajoutés)
+    recLignes = draft.lignes.map(l=>({...l}));
+    livrInit = draft.livr || {};
+    if(draft.photos) Object.keys(draft.photos).forEach(k=>{ recPhotos[k] = {url:draft.photos[k]}; });
+  }else{
+    // état de départ = lignes de la commande (en conservant un éventuel article déjà ajouté)
+    recLignes = cmd.lignes.map((l,i)=>({
+      uid:'o'+i, cat:l.cat, prod:l.prod, cond:l.cond, prix:+l.prix||0, qte:+l.qte||0, ajoute:!!l.ajoute
+    }));
+    cmd.lignes.forEach((l,i)=>{
+      if(l.photoUrl) recPhotos['o'+i] = {url:l.photoUrl};
+      if(l.livr!==''&&l.livr!=null) livrInit['o'+i] = l.livr;
+    });
+  }
 
-  corps.querySelectorAll('.cell-in').forEach(inp=>{
-    inp.addEventListener('input', ()=>{ majRecTotaux(); sauverBrouillon(ref); });
-  });
-
+  renderRecLignes(livrInit);
   document.getElementById('recSaisie').style.display = '';
-  majRecTotaux();
   if(draftOk) toast('Saisie précédente restaurée 📝');
   document.getElementById('recSaisie').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-// ─── Brouillon local (anti-perte de saisie) ───
+// Rendu du tableau de réception à partir de recLignes
+function renderRecLignes(livrInit){
+  livrInit = livrInit || {};
+  const corps = document.getElementById('recCorps');
+  corps.innerHTML = recLignes.map(l=>renderRecRow(l, livrInit[l.uid])).join('');
+  corps.querySelectorAll('.cell-in').forEach(inp=>{
+    inp.addEventListener('input', ()=>{ majRecTotaux(); sauverBrouillon(recRefCourante); });
+  });
+  majRecTotaux();
+}
+function renderRecRow(l, livrVal){
+  const qte=+l.qte||0, prix=+l.prix||0;
+  const v = (livrVal!=null && livrVal!=='') ? livrVal : '';
+  const effLivr = (v==='') ? qte : (+v||0);
+  const extra = l.ajoute
+    ? ` <span class="badge-ajout">+ ajouté</span><button class="sup-ln" data-supln="${l.uid}" title="Retirer cet article">✕</button>`
+    : '';
+  return `
+    <tr class="${l.ajoute?'ligne-ajout':''}">
+      <td>${esc(l.cat)}</td>
+      <td>${esc(l.prod)}${extra}</td>
+      <td>${esc(l.cond)}</td>
+      <td class="montant" style="color:var(--encre)">${qte}</td>
+      <td class="col-livr"><input class="cell-in num livr" data-ri="${l.uid}" type="number" min="0" step="1"
+           value="${v}" placeholder="${qte}"></td>
+      <td class="montant" style="color:var(--encre)">${eur(qte*prix)}</td>
+      <td class="col-livr montant" data-rml="${l.uid}" style="color:var(--livr)">${eur(effLivr*prix)}</td>
+      <td class="col-photo" data-phcell="${l.uid}">${photoCellHtml(l.uid)}
+        <input type="file" accept="image/*" capture="environment" class="photo-input" data-phi="${l.uid}" hidden>
+      </td>
+    </tr>`;
+}
+// capture les quantités reçues déjà saisies (pour ne rien perdre au re-rendu)
+function lireLivrActuel(){
+  const m = {};
+  recLignes.forEach(l=>{ const inp=document.querySelector('#recCorps [data-ri="'+l.uid+'"]'); if(inp) m[l.uid]=inp.value; });
+  return m;
+}
+function ajouterLigneRec(a){
+  const deja = new Set(recLignes.map(l=>(l.prod||'')+'|'+(l.cond||'')));
+  if(deja.has((a.prod||'')+'|'+(a.cond||''))){ toast('Article déjà présent','⚠️'); return; }
+  const uid = 'x'+Date.now()+Math.floor(Math.random()*1000);
+  recLignes.push({uid, cat:a.cat, prod:a.prod, cond:a.cond, prix:+a.prix||0, qte:0, ajoute:true});
+  renderRecLignes(lireLivrActuel());
+  sauverBrouillon(recRefCourante);
+  renderAjoutListe();   // met à jour l'état « déjà présent » dans la fenêtre
+  toast('Article ajouté ✓','➕');
+}
+function supprimerLigneRec(uid){
+  recLignes = recLignes.filter(l=>l.uid!==uid);
+  delete recPhotos[uid];
+  renderRecLignes(lireLivrActuel());
+  sauverBrouillon(recRefCourante);
+}
+
+// ─── Fenêtre de sélection d'article ───
+function ouvrirAjoutArticle(){
+  document.getElementById('recAjoutSearch').value='';
+  document.getElementById('recAjoutModal').hidden=false;
+  renderAjoutListe();
+  setTimeout(()=>document.getElementById('recAjoutSearch').focus(), 50);
+}
+function fermerAjoutArticle(){ document.getElementById('recAjoutModal').hidden=true; }
+function renderAjoutListe(){
+  const f = normaliserTxt(document.getElementById('recAjoutSearch').value).trim();
+  const liste = document.getElementById('recAjoutListe');
+  const deja = new Set(recLignes.map(l=>(l.prod||'')+'|'+(l.cond||'')));
+  const arts = (catalogue||[]).filter(a=> !f || normaliserTxt((a.prod||'')+' '+(a.cat||'')+' '+(a.cond||'')).includes(f));
+  liste._arts = arts;
+  if(!arts.length){ liste.innerHTML = `<div style="text-align:center;color:var(--gris);padding:24px">Aucun article trouvé.</div>`; return; }
+  let html='', catPrec=null;
+  arts.forEach((a,idx)=>{
+    if((a.cat||'')!==catPrec){ catPrec=a.cat||''; html += `<div class="modal-cat">${esc(catPrec||'—')}</div>`; }
+    const estDeja = deja.has((a.prod||'')+'|'+(a.cond||''));
+    html += `<button class="modal-item${estDeja?' deja':''}" data-addidx="${idx}">
+      <span><span class="mi-prod">${esc(a.prod)}</span><br><span class="mi-cond">${esc(a.cond)}${estDeja?' · déjà présent':''}</span></span>
+      <span style="display:flex;align-items:center;gap:12px"><span class="mi-prix">${eur(a.prix)}</span><span class="mi-plus">＋</span></span>
+    </button>`;
+  });
+  liste.innerHTML = html;
+}
+
+// ─── Brouillon local (anti-perte de saisie, inclut les articles ajoutés) ───
 function sauverBrouillon(ref){
-  const inputs = document.querySelectorAll('#recCorps .cell-in');
-  const livr = Array.from(inputs).map(inp=>inp.value);
+  if(!ref) return;
+  const livr = lireLivrActuel();
   const photos = {};
   Object.keys(recPhotos).forEach(k=>{ if(recPhotos[k] && recPhotos[k].url) photos[k]=recPhotos[k].url; });
-  Store.set('recDraft_'+ref, {livr, photos, ts:Date.now()});
+  const lignes = recLignes.map(l=>({uid:l.uid, cat:l.cat, prod:l.prod, cond:l.cond, prix:l.prix, qte:l.qte, ajoute:!!l.ajoute}));
+  Store.set('recDraft_'+ref, {lignes, livr, photos, ts:Date.now()});
 }
 function supprimerBrouillon(ref){ Store.set('recDraft_'+ref, null); }
 
@@ -1224,19 +1380,18 @@ async function capturerPhoto(i, file){
 }
 
 function majRecTotaux(){
-  const cmd = _cmds.find(c=>c.ref===recRefCourante);
-  if(!cmd) return;
-  let totCmd=0, totLivr=0, montCmd=0, montLivr=0, ecart=false;
-  const inputs = document.querySelectorAll('#recCorps .cell-in');
-  cmd.lignes.forEach((l,i)=>{
+  let totCmd=0, totLivr=0, montCmd=0, montLivr=0, manqueEur=0, plusEur=0;
+  recLignes.forEach(l=>{
     const qte=+l.qte||0, prix=+l.prix||0;
-    const raw = inputs[i] ? inputs[i].value : '';
+    const inp = document.querySelector('#recCorps [data-ri="'+l.uid+'"]');
+    const raw = inp ? inp.value : '';
     const livr = raw==='' ? qte : (+raw||0);     // vide = qté commandée
     totCmd  += qte;       totLivr  += livr;
     montCmd += qte*prix;  montLivr += livr*prix;
-    if(raw!=='' && livr!==qte) ecart=true;
+    if(livr<qte) manqueEur += (qte-livr)*prix;
+    if(livr>qte) plusEur   += (livr-qte)*prix;
     // montant livré de la ligne (rouge si manquant)
-    const cell = document.querySelector('#recCorps [data-rml="'+i+'"]');
+    const cell = document.querySelector('#recCorps [data-rml="'+l.uid+'"]');
     if(cell){
       cell.textContent = eur(livr*prix);
       cell.style.color = (raw!=='' && livr<qte) ? 'var(--terre)' : 'var(--livr)';
@@ -1248,21 +1403,28 @@ function majRecTotaux(){
   document.getElementById('recTotMontLivr').textContent = eur(montLivr);
   document.getElementById('recTotMontLivr').style.color = (montLivr<montCmd) ? 'var(--terre)' : 'var(--livr)';
 
-  const manque = montCmd - montLivr;
-  document.getElementById('recEcart').innerHTML = ecart
-    ? `⚠️ <b>Livraison incomplète</b> — manque <b>${eur(manque)}</b> (commandé ${eur(montCmd)} · livré ${eur(montLivr)}).`
-    : '💡 Saisissez les quantités réellement reçues. Laissez vide pour reprendre la quantité commandée.';
+  const el = document.getElementById('recEcart');
+  if(manqueEur>0.001 && plusEur>0.001)
+    el.innerHTML = `⚠️ <b>Écart</b> — manque <b>${eur(manqueEur)}</b>, en plus <b>${eur(plusEur)}</b> (livré ${eur(montLivr)} / commandé ${eur(montCmd)}).`;
+  else if(manqueEur>0.001)
+    el.innerHTML = `⚠️ <b>Livraison incomplète</b> — manque <b>${eur(manqueEur)}</b> (livré ${eur(montLivr)} / commandé ${eur(montCmd)}).`;
+  else if(plusEur>0.001)
+    el.innerHTML = `➕ <b>Articles livrés en plus</b> : +${eur(plusEur)} (livré ${eur(montLivr)} / commandé ${eur(montCmd)}).`;
+  else
+    el.innerHTML = '💡 Saisissez les quantités réellement reçues. Laissez vide pour reprendre la quantité commandée.';
 }
 
 async function validerReception(){
-  const cmd = _cmds.find(c=>c.ref===recRefCourante);
-  if(!cmd) return;
+  if(!recRefCourante) return;
   const ref = recRefCourante;
-  const inputs = document.querySelectorAll('#recCorps .cell-in');
-  const lignes = cmd.lignes.map((l,i)=>{
-    const raw = inputs[i] ? inputs[i].value : '';
-    const ligne = {...l, livr: raw==='' ? (+l.qte||0) : (+raw||0)};   // vide = qté commandée
-    if(recPhotos[i] && recPhotos[i].url) ligne.photoUrl = recPhotos[i].url;
+  const lignes = recLignes.map(l=>{
+    const inp = document.querySelector('#recCorps [data-ri="'+l.uid+'"]');
+    const raw = inp ? inp.value : '';
+    const qte = +l.qte||0;
+    const ligne = { cat:l.cat, prod:l.prod, cond:l.cond, prix:+l.prix||0, qte,
+                    livr: raw==='' ? qte : (+raw||0) };
+    if(l.ajoute) ligne.ajoute = true;
+    if(recPhotos[l.uid] && recPhotos[l.uid].url) ligne.photoUrl = recPhotos[l.uid].url;
     return ligne;
   });
 
